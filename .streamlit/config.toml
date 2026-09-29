@@ -1,0 +1,15 @@
+[theme]
+primaryColor = "#00FF9C"
+backgroundColor = "#0B1021"
+secondaryBackgroundColor = "#141A31"
+textColor = "#E6F1FF"
+font = "sans serif"
+baseRadius = "medium"
+codeBackgroundColor = "#0F152A"
+linkColor = "#00FF9C"
+
+[theme.sidebar]
+backgroundColor = "#080C1A"
+secondaryBackgroundColor = "#0F152A"
+textColor = "#E6F1FF"
+primaryColor = "#00FF9C"
