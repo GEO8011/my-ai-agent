@@ -9,3 +9,4 @@ requests
 gtts
 faster-whisper
 pollinations-client
+python-dotenv
