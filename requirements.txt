@@ -1,0 +1,11 @@
+streamlit
+python-dotenv
+langchain
+langchain-openrouter
+langchain-tavily
+langchain-experimental
+langgraph
+requests
+gtts
+faster-whisper
+pollinations-client
