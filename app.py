@@ -3,6 +3,12 @@ import os
 import json
 from datetime import datetime
 import streamlit as st
+def get_secret(key):
+    """Διαβάζει από st.secrets (Cloud) ή get_secret (τοπικά)."""
+    try:
+        return st.secrets[key]
+    except:
+        return os.getenv(key)
 try:
     from langchain_ollama import ChatOllama
 except ImportError:
@@ -338,10 +344,10 @@ python_repl = PythonREPLTool()
 research_agent = create_agent(
     model=(
         ChatOllama(model="qwen3:8b", temperature=0.7)
-        if os.getenv("USE_OLLAMA", "false").lower() == "true"
+        if get_secret("USE_OLLAMA") == "true"
         else ChatOpenRouter(
             model="qwen/qwen-2.5-72b-instruct:free",
-            api_key=os.getenv("OPENROUTER_API_KEY")
+            api_key=get_secret("OPENROUTER_API_KEY")
         )
     ),
     tools=[tavily],
@@ -457,10 +463,10 @@ def enhance_prompt(prompt: str) -> str:
     try:
         enhancer_model = (
             ChatOllama(model="qwen3:8b", temperature=0.7)
-            if os.getenv("USE_OLLAMA", "false").lower() == "true"
+            if get_secret("USE_OLLAMA") == "true"
             else ChatOpenRouter(
                 model="qwen/qwen-2.5-72b-instruct:free",
-                api_key=os.getenv("OPENROUTER_API_KEY")
+                api_key=get_secret("OPENROUTER_API_KEY")
             )
         )
         result = enhancer_model.invoke(
@@ -478,7 +484,7 @@ def enhance_prompt(prompt: str) -> str:
 
 @st.cache_resource
 def get_agent():
-    if os.getenv("USE_OLLAMA", "false").lower() == "true":
+    if get_secret("USE_OLLAMA") == "true":
         model = ChatOllama(
             model="qwen3:8b",
             temperature=0.7,
@@ -486,7 +492,7 @@ def get_agent():
     else:
         model = ChatOpenRouter(
             model="meta-llama/llama-3.3-70b-instruct:free",
-            api_key=os.getenv("OPENROUTER_API_KEY")
+            api_key=get_secret("OPENROUTER_API_KEY")
         )
     
     return create_agent(
@@ -500,7 +506,7 @@ def get_agent():
                         SummarizationMiddleware(
                 model=(
                     "ollama:qwen3:8b"
-                    if os.getenv("USE_OLLAMA", "false").lower() == "true"
+                    if get_secret("USE_OLLAMA") == "true"
                     else "openrouter:meta-llama/llama-3.3-70b-instruct:free"
                 ),
                 trigger=("tokens", 4000),
