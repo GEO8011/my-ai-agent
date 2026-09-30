@@ -10,3 +10,4 @@ gtts
 faster-whisper
 pollinations-client
 python-dotenv
+langchain-ollama

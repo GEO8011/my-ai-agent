@@ -3,7 +3,10 @@ import os
 import json
 from datetime import datetime
 import streamlit as st
-from langchain_ollama import ChatOllama
+try:
+    from langchain_ollama import ChatOllama
+except ImportError:
+    ChatOllama = None
 from dotenv import load_dotenv
 from langchain_openrouter import ChatOpenRouter
 from langchain_ollama import ChatOllama
