@@ -1,9 +1,12 @@
+from pydantic import BaseModel, Field
 import os
 import json
 from datetime import datetime
 import streamlit as st
+from langchain_ollama import ChatOllama
 from dotenv import load_dotenv
 from langchain_openrouter import ChatOpenRouter
+from langchain_ollama import ChatOllama
 from langchain_core.tools import tool
 from langchain.agents import create_agent
 from langchain_tavily import TavilySearch
@@ -15,6 +18,7 @@ from faster_whisper import WhisperModel
 import tempfile
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command
+from langchain.agents.middleware import SummarizationMiddleware, HumanInTheLoopMiddleware, PIIMiddleware
 
 load_dotenv()
 
@@ -28,6 +32,170 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# ===== ΘΕΜΑΤΑ =====
+
+# ===== SMART SUGGESTIONS MODEL =====
+
+class AgentResponse(BaseModel):
+    """Δομημένη απάντηση με προτάσεις."""
+    answer: str = Field(description="Η απάντηση του agent")
+    suggestions: list[str] = Field(
+        description="3 προτεινόμενες επόμενες ερωτήσεις",
+        default_factory=list
+    )
+
+THEMES = {
+    "cyberpunk": {
+        "name": "🌃 Cyberpunk",
+        "bg": "#0B1021",
+        "card": "#141A31",
+        "text": "#E6F1FF",
+        "primary": "#00FF9C",
+        "sub": "#A0AEC0",
+        "border": "#00FF9C"
+    },
+    "matrix": {
+        "name": "💚 Matrix",
+        "bg": "#000000",
+        "card": "#0A1A0A",
+        "text": "#00FF00",
+        "primary": "#00FF00",
+        "sub": "#00AA00",
+        "border": "#00FF00"
+    },
+    "sunset": {
+        "name": "🌅 Sunset",
+        "bg": "#1A0F0A",
+        "card": "#2A1A0F",
+        "text": "#FFE4C4",
+        "primary": "#FF6B35",
+        "sub": "#C09070",
+        "border": "#FF6B35"
+    },
+    "ocean": {
+        "name": "🌊 Ocean",
+        "bg": "#0A1628",
+        "card": "#152A45",
+        "text": "#E0F4FF",
+        "primary": "#00BFFF",
+        "sub": "#7FB0D0",
+        "border": "#00BFFF"
+    },
+    "purple": {
+        "name": "💜 Neon Purple",
+        "bg": "#0F0A1E",
+        "card": "#1A1030",
+        "text": "#E8D5FF",
+        "primary": "#B026FF",
+        "sub": "#A080C0",
+        "border": "#B026FF"
+    }
+}
+
+# Αρχικοποίηση θέματος
+if "theme_name" not in st.session_state:
+    st.session_state.theme_name = "cyberpunk"
+
+theme = THEMES[st.session_state.theme_name]
+
+st.markdown(f"""
+<style>
+    /* Κύριο φόντο */
+    .stApp {{
+        background: {theme['bg']};
+    }}
+    
+    /* Sidebar */
+    [data-testid="stSidebar"] {{
+        background: {theme['card']};
+        border-right: 1px solid {theme['border']};
+    }}
+    
+    /* Κείμενο */
+    .stApp, .stApp p, .stApp h1, .stApp h2, .stApp h3, .stApp h4 {{
+        color: {theme['text']};
+    }}
+    
+    /* Μηνύματα */
+    .stChatMessage {{
+        background: {theme['card']};
+        border-left: 3px solid {theme['primary']};
+        border-radius: 12px;
+        padding: 0.5rem;
+        margin: 0.5rem 0;
+        animation: fadeIn 0.4s ease-in-out;
+        transition: all 0.3s ease;
+    }}
+    
+    .stChatMessage:hover {{
+        box-shadow: 0 0 15px {theme['primary']}40;
+    }}
+    
+    /* Κουμπιά */
+    .stButton button {{
+        background: linear-gradient(135deg, {theme['primary']}, {theme['primary']}CC);
+        color: {theme['bg']};
+        font-weight: bold;
+        border: none;
+        transition: all 0.3s ease;
+        box-shadow: 0 0 10px {theme['primary']}30;
+    }}
+    
+    .stButton button:hover {{
+        box-shadow: 0 0 25px {theme['primary']}80;
+        transform: translateY(-2px);
+    }}
+    
+    /* Scrollbar */
+    ::-webkit-scrollbar {{
+        width: 10px;
+    }}
+    
+    ::-webkit-scrollbar-track {{
+        background: {theme['bg']};
+    }}
+    
+    ::-webkit-scrollbar-thumb {{
+        background: {theme['primary']};
+        border-radius: 5px;
+    }}
+    
+    /* Chat input */
+    .stChatInput {{
+        border: 2px solid {theme['primary']} !important;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+    }}
+    
+    .stChatInput:focus-within {{
+        box-shadow: 0 0 20px {theme['primary']}50;
+    }}
+    
+    /* Animations */
+    @keyframes fadeIn {{
+        from {{ opacity: 0; transform: translateY(10px); }}
+        to {{ opacity: 1; transform: translateY(0); }}
+    }}
+    
+    /* Header */
+    .main-header {{
+        animation: fadeIn 0.6s ease-in-out;
+        box-shadow: 0 0 20px {theme['primary']}20;
+    }}
+    
+    /* Metrics */
+    [data-testid="stMetricValue"] {{
+        color: {theme['primary']};
+    }}
+    
+    /* Smooth scroll */
+    html {{
+        scroll-behavior: smooth;
+    }}
+</style>
+""", unsafe_allow_html=True)
+
 
 # ===== CUSTOM CSS =====
 
@@ -165,9 +333,13 @@ python_repl = PythonREPLTool()
 # ===== SUBAGENT: ΕΡΕΥΝΗΤΗΣ =====
 
 research_agent = create_agent(
-    model=ChatOpenRouter(
-        model="nvidia/nemotron-3-ultra-550b-a55b:free",
-        api_key=os.getenv("OPENROUTER_API_KEY")
+    model=(
+        ChatOllama(model="qwen3:8b", temperature=0.7)
+        if os.getenv("USE_OLLAMA", "false").lower() == "true"
+        else ChatOpenRouter(
+            model="qwen/qwen-2.5-72b-instruct:free",
+            api_key=os.getenv("OPENROUTER_API_KEY")
+        )
     ),
     tools=[tavily],
     system_prompt="Είσαι ένας ειδικός ερευνητής. Ψάχνεις στο internet με το TavilySearch και επιστρέφεις ΜΟΝΟ τα βασικά συμπεράσματα, συνοπτικά, χωρίς περιττά λόγια."
@@ -197,6 +369,23 @@ def save_memory(messages):
     with open(MEMORY_FILE, "w", encoding="utf-8") as f:
         json.dump(simple, f, ensure_ascii=False, indent=2)
 
+def generate_suggestions(answer: str, context: list) -> list:
+    """Δημιουργεί 3 προτεινόμενες ερωτήσεις με βάση την απάντηση."""
+    try:
+        model_with_structure = model.with_structured_output(AgentResponse)
+        
+        prompt = f"""Με βάση αυτή την απάντηση:
+        
+"{answer}"
+
+Πρότεινε 3 σύντομες, σχετικές ερωτήσεις που μπορεί να κάνει ο χρήστης στη συνέχεια.
+Κάθε ερώτηση να είναι μέχρι 8 λέξεις, στα ελληνικά."""
+        
+        result = model_with_structure.invoke(prompt)
+        return result.suggestions[:3]
+    except Exception as e:
+        print(f"Suggestions Error: {e}")
+        return []
 def export_chat_json(messages):
     """Εξάγει τη συνομιλία σε JSON."""
     data = {
@@ -259,19 +448,67 @@ def generate_image(prompt: str) -> str:
         return f"Η εικόνα δημιουργήθηκε: {image_url}"
     except Exception as e:
         return f"Η δημιουργία απέτυχε: {e}"
+@tool
+def enhance_prompt(prompt: str) -> str:
+    """Βελτιώνει μια περιγραφή εικόνας προσθέτοντας λεπτομέρειες φωτισμού, στυλ και σύνθεσης. Χρησιμοποίησέ το ΠΡΙΝ από το generate_image."""
+    try:
+        enhancer_model = (
+            ChatOllama(model="qwen3:8b", temperature=0.7)
+            if os.getenv("USE_OLLAMA", "false").lower() == "true"
+            else ChatOpenRouter(
+                model="qwen/qwen-2.5-72b-instruct:free",
+                api_key=os.getenv("OPENROUTER_API_KEY")
+            )
+        )
+        result = enhancer_model.invoke(
+            f"Πάρε αυτή την απλή περιγραφή και μετάτρεψέ την σε μια πλούσια, "
+            f"κινηματογραφική περιγραφή για μοντέλο δημιουργίας εικόνας. "
+            f"Πρόσθεσε φωτισμό, στυλ, σύνθεση, χρώματα. "
+            f"Απάντησε ΜΟΝΟ με την βελτιωμένη περιγραφή στα αγγλικά.\n\n"
+            f"Αρχική: {prompt}"
+        )
+        return result.content
+    except Exception as e:
+        return f"Η βελτίωση απέτυχε: {e}. Χρησιμοποίησε το αρχικό prompt."
 
 # ===== ΜΟΝΤΕΛΟ & AGENT =====
 
 @st.cache_resource
 def get_agent():
-    model = ChatOpenRouter(
-        model="nvidia/nemotron-3-ultra-550b-a55b:free",
-        api_key=os.getenv("OPENROUTER_API_KEY")
-    )
+    if os.getenv("USE_OLLAMA", "false").lower() == "true":
+        model = ChatOllama(
+            model="qwen3:8b",
+            temperature=0.7,
+        )
+    else:
+        model = ChatOpenRouter(
+            model="meta-llama/llama-3.3-70b-instruct:free",
+            api_key=os.getenv("OPENROUTER_API_KEY")
+        )
+    
     return create_agent(
         model=model,
-        tools=[calculate, get_time, word_count, tavily, delegate_research, python_repl, generate_image],
-        system_prompt="Είσαι ένας εξυπηρετικός βοηθός. Ο χρήστης είναι ο άνθρωπος που σου μιλάει — εσύ ΔΕΝ είσαι ο χρήστης. Χρησιμοποίησε τα εργαλεία όταν χρειάζεται.",
+        tools=[calculate, get_time, word_count, tavily, delegate_research, python_repl, generate_image, enhance_prompt],
+        system_prompt="Απάντα ΠΑΝΤΑ στα Ελληνικά, ανεξάρτητα από τη γλώσσα της ερώτησης. Είσαι ένας εξυπηρετικός βοηθός. Ο χρήστης είναι ο άνθρωπος που σου μιλάει — εσύ ΔΕΝ είσαι ο χρήστης. Χρησιμοποίησε τα εργαλεία όταν χρειάζεται. Πάντα στο τέλος της  απάντησής σου, πρότεινε 3 σχετικές επόμενες ερωτήσεις που μπορεί να κάνει ο χρήστης. Για δημιουργία εικόνας: ΠΡΩΤΑ κάλεσε το enhance_prompt, ΜΕΤΑ πέρασε το αποτέλεσμα στο generate_image.",
+        middleware=[
+            PIIMiddleware("email", strategy="redact"),
+            PIIMiddleware("credit_card", strategy="mask"),
+            PIIMiddleware("url", strategy="redact"),
+                        SummarizationMiddleware(
+                model=(
+                    "ollama:qwen3:8b"
+                    if os.getenv("USE_OLLAMA", "false").lower() == "true"
+                    else "openrouter:meta-llama/llama-3.3-70b-instruct:free"
+                ),
+                trigger=("tokens", 4000),
+                keep=("messages", 20)
+            ),
+            HumanInTheLoopMiddleware(
+                interrupt_on={
+                    "python_repl": True,
+                },
+            ),
+        ],
         checkpointer=MemorySaver()
     )
 
@@ -289,9 +526,27 @@ st.markdown("""
 # ===== SIDEBAR =====
 
 with st.sidebar:
+    # Theme Switcher
+    st.markdown("### 🎨 Θέμα")
+    selected_theme = st.selectbox(
+        "Διάλεξε θέμα:",
+        options=list(THEMES.keys()),
+        format_func=lambda x: THEMES[x]["name"],
+        index=list(THEMES.keys()).index(st.session_state.theme_name),
+        label_visibility="collapsed"
+    )
+    
+    if selected_theme != st.session_state.theme_name:
+        st.session_state.theme_name = selected_theme
+        st.rerun()
+    
+    st.markdown("---")
     st.markdown("### ⚡ AI Agent")
     st.markdown("---")
     
+    enable_tts = st.checkbox("🔊 Ενεργοποίηση Φωνής (TTS)", value=False)
+    st.markdown("---")
+
     # Στατιστικά
     st.markdown("#### 📊 Στατιστικά")
     mem = load_memory()
@@ -390,6 +645,19 @@ for idx, msg in enumerate(st.session_state.messages):
         # Κουμπί αντιγραφής
         with st.expander("📋 Αντιγραφή", expanded=False):
             st.code(msg["content"], language=None)
+        
+        # Smart Suggestions (μόνο στο τελευταίο assistant μήνυμα)
+        if (msg["role"] == "assistant" 
+            and idx == len(st.session_state.messages) - 1 
+            and msg.get("suggestions")):
+            
+            st.markdown("💡 **Προτεινόμενες ερωτήσεις:**")
+            sug_cols = st.columns(3)
+            for i, sug in enumerate(msg["suggestions"][:3]):
+                with sug_cols[i % 3]:
+                    if st.button(f"👉 {sug}", key=f"sug_{idx}_{i}", use_container_width=True):
+                        st.session_state.quick_prompt = sug
+                        st.rerun()
 
 # ===== ΕΙΣΑΓΩΓΗ =====
 
@@ -408,8 +676,13 @@ if audio_input:
                 with st.chat_message("assistant", avatar="🤖"):
                     with st.spinner("🤔 Σκέφτομαι..."):
                         config = {"configurable": {"thread_id": "my-session"}}
-                        result = agent.invoke({"messages": st.session_state.messages}, config=config)
-
+                      
+                        try:
+                            result = agent.invoke({"messages": st.session_state.messages}, config=config)
+                        except Exception as e:
+                            st.error("⚠️ Παρουσιάστηκε προσωρινό πρόβλημα με τον πάροχο. Δοκίμασε ξανά σε λίγο.")
+                            st.stop()
+                        
                         if result.get("__interrupt__"):
                             st.warning("⚠️ Ο agent θέλει να εκτελέσει κώδικα!")
                             action = result["__interrupt__"][0].value["action_requests"][0]
@@ -435,7 +708,11 @@ if audio_input:
                                 except Exception as e:
                                     st.caption(f"⚠️ Αποτυχία TTS: {e}")
 
-                st.session_state.messages.append({"role": "assistant", "content": answer})
+                st.session_state.messages.append({
+    "role": "assistant",
+    "content": answer,
+    "suggestions": generate_suggestions(answer, st.session_state.messages)
+})
                 save_memory(st.session_state.messages)
         except Exception as e:
             st.error(f"⚠️ Αποτυχία αναγνώρισης: {e}")
@@ -456,7 +733,11 @@ if prompt:
     with st.chat_message("assistant", avatar="🤖"):
         with st.spinner("🤔 Σκέφτομαι..."):
             config = {"configurable": {"thread_id": "my-session"}}
-            result = agent.invoke({"messages": st.session_state.messages}, config=config)
+            try:
+                result = agent.invoke({"messages": st.session_state.messages}, config=config)
+            except Exception as e:
+                st.error("⚠️ Παρουσιάστηκε προσωρινό πρόβλημα με τον πάροχο. Δοκίμασε ξανά σε λίγο.")
+                st.stop()
             
             # Έλεγχος για interrupt (HITL)
             if result.get("__interrupt__"):
@@ -486,5 +767,9 @@ if prompt:
                     except Exception as e:
                         st.caption(f"⚠️ Αποτυχία TTS: {e}")
 
-    st.session_state.messages.append({"role": "assistant", "content": answer})
+    st.session_state.messages.append({
+    "role": "assistant",
+    "content": answer,
+    "suggestions": generate_suggestions(answer, st.session_state.messages)
+})
     save_memory(st.session_state.messages)

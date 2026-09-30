@@ -1,15 +1,32 @@
+# ===== ΘΕΜΑΤΑ =====
+
 [theme]
+base = "dark"
 primaryColor = "#00FF9C"
 backgroundColor = "#0B1021"
 secondaryBackgroundColor = "#141A31"
 textColor = "#E6F1FF"
+codeBackgroundColor = "#0F152A"
+linkColor = "#00FF9C"
 font = "sans serif"
 baseRadius = "medium"
+
+# ===== DARK (Cyberpunk) =====
+
+[theme.dark]
+primaryColor = "#00FF9C"
+backgroundColor = "#0B1021"
+secondaryBackgroundColor = "#141A31"
+textColor = "#E6F1FF"
 codeBackgroundColor = "#0F152A"
 linkColor = "#00FF9C"
 
-[theme.sidebar]
-backgroundColor = "#080C1A"
-secondaryBackgroundColor = "#0F152A"
-textColor = "#E6F1FF"
-primaryColor = "#00FF9C"
+# ===== LIGHT (Minimal) =====
+
+[theme.light]
+primaryColor = "#00A86B"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F0F2F6"
+textColor = "#262730"
+codeBackgroundColor = "#F5F5F5"
+linkColor = "#00A86B"
