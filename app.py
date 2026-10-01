@@ -507,7 +507,7 @@ def get_agent():
                 model=(
                     "ollama:qwen3:8b"
                     if get_secret("USE_OLLAMA") == "true"
-                    else "openrouter:model="deepseek/deepseek-chat:free",
+                    else "openrouter:deepseek/deepseek-chat:free",
                 ),
                 trigger=("tokens", 4000),
                 keep=("messages", 20)
