@@ -491,7 +491,7 @@ def get_agent():
         )
     else:
         model = ChatOpenRouter(
-            model="meta-llama/llama-3.3-70b-instruct:free",
+            model="model="deepseek/deepseek-chat:free",
             api_key=get_secret("OPENROUTER_API_KEY")
         )
     
@@ -507,7 +507,7 @@ def get_agent():
                 model=(
                     "ollama:qwen3:8b"
                     if get_secret("USE_OLLAMA") == "true"
-                    else "openrouter:meta-llama/llama-3.3-70b-instruct:free"
+                    else "openrouter:model="deepseek/deepseek-chat:free",
                 ),
                 trigger=("tokens", 4000),
                 keep=("messages", 20)
