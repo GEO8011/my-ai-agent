@@ -491,7 +491,7 @@ def get_agent():
         )
     else:
         model = ChatOpenRouter(
-            model="model="deepseek/deepseek-chat:free",
+            model="deepseek/deepseek-chat:free",
             api_key=get_secret("OPENROUTER_API_KEY")
         )
     
