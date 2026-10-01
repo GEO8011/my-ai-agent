@@ -689,7 +689,7 @@ if audio_input:
                         try:
                             result = agent.invoke({"messages": st.session_state.messages}, config=config)
                         except Exception as e:
-                            st.error("⚠️ Παρουσιάστηκε προσωρινό πρόβλημα με τον πάροχο. Δοκίμασε ξανά σε λίγο.")
+                                st.error(f"⚠️ DEBUG: {type(e).__name__}: {str(e)[:200]}")
                             st.stop()
                         
                         if result.get("__interrupt__"):
@@ -745,7 +745,7 @@ if prompt:
             try:
                 result = agent.invoke({"messages": st.session_state.messages}, config=config)
             except Exception as e:
-                st.error("⚠️ Παρουσιάστηκε προσωρινό πρόβλημα με τον πάροχο. Δοκίμασε ξανά σε λίγο.")
+                    st.error(f"⚠️ DEBUG: {type(e).__name__}: {str(e)[:200]}")
                 st.stop()
             
             # Έλεγχος για interrupt (HITL)
