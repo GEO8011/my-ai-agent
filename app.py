@@ -685,8 +685,8 @@ if audio_input:
                 with st.chat_message("assistant", avatar="🤖"):
                     with st.spinner("🤔 Σκέφτομαι..."):
                         config = {"configurable": {"thread_id": "my-session"}}
-                      
-                                              try:
+                        
+                        try:
                             result = agent.invoke({"messages": st.session_state.messages}, config=config)
                         except Exception as e:
                             st.error(f"⚠️ DEBUG: {type(e).__name__}: {str(e)[:200]}")
@@ -745,7 +745,7 @@ if prompt:
             try:
                 result = agent.invoke({"messages": st.session_state.messages}, config=config)
             except Exception as e:
-                    st.error(f"⚠️ DEBUG: {type(e).__name__}: {str(e)[:200]}")
+                st.error(f"⚠️ DEBUG: {type(e).__name__}: {str(e)[:200]}")
                 st.stop()
             
             # Έλεγχος για interrupt (HITL)
