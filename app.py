@@ -503,12 +503,8 @@ def get_agent():
             PIIMiddleware("email", strategy="redact"),
             PIIMiddleware("credit_card", strategy="mask"),
             PIIMiddleware("url", strategy="redact"),
-                        SummarizationMiddleware(
-                model=(
-                    "ollama:qwen3:8b"
-                    if get_secret("USE_OLLAMA") == "true"
-                    else "openrouter:deepseek/deepseek-chat:free",
-                ),
+            SummarizationMiddleware(
+                model="openrouter:deepseek/deepseek-chat:free",
                 trigger=("tokens", 4000),
                 keep=("messages", 20)
             ),
