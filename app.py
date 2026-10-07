@@ -504,7 +504,7 @@ def get_agent():
             PIIMiddleware("credit_card", strategy="mask"),
             PIIMiddleware("url", strategy="redact"),
             SummarizationMiddleware(
-                model="openrouter/free",
+                model="openrouter:meta-llama/llama-3.3-70b-instruct:free",
                 trigger=("tokens", 4000),
                 keep=("messages", 20)
             ),
