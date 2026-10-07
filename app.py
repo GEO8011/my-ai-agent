@@ -491,7 +491,7 @@ def get_agent():
         )
     else:
         model = ChatOpenRouter(
-            model="deepseek/deepseek-chat:free",
+            model="openrouter/free",
             api_key=get_secret("OPENROUTER_API_KEY")
         )
     
@@ -504,7 +504,7 @@ def get_agent():
             PIIMiddleware("credit_card", strategy="mask"),
             PIIMiddleware("url", strategy="redact"),
             SummarizationMiddleware(
-                model="openrouter:deepseek/deepseek-chat:free",
+                model="openrouter/free",
                 trigger=("tokens", 4000),
                 keep=("messages", 20)
             ),
